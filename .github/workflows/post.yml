@@ -31,6 +31,12 @@ jobs:
 
       - run: pip install requests pillow pillow-heif
 
+      - name: LINEで承認済みの投稿を受け取る
+        env:
+          DRIVE_URL: ${{ secrets.DRIVE_URL }}
+          DRIVE_KEY: ${{ secrets.DRIVE_KEY }}
+        run: python scripts/fetch_drive.py
+
       - name: 画像をインスタ用に整える
         run: python scripts/post.py --prepare
 
@@ -49,6 +55,8 @@ jobs:
         env:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          DRIVE_URL: ${{ secrets.DRIVE_URL }}
+          DRIVE_KEY: ${{ secrets.DRIVE_KEY }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
             python scripts/post.py --dry-run
