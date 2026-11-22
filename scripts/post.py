@@ -193,6 +193,19 @@ def main() -> int:
         prepare_images()
         return 0
 
+    token = os.environ.get("IG_ACCESS_TOKEN", "").strip()
+    user_id = os.environ.get("IG_USER_ID", "").strip()
+    if not token or not user_id:
+        log("IG_ACCESS_TOKEN / IG_USER_ID が設定されていません。GitHub Secrets を確認してください。")
+        return 1
+    api = Api(token, user_id)
+
+    if args.dry_run:
+        # テストでは投稿待ちが空でもインスタとの接続を確認する
+        log(f"接続確認OK: @{api.whoami()}")
+        used, total = api.quota()
+        log(f"24時間の投稿上限: {used}/{total}")
+
     items = queue_items()
     if not items:
         log("投稿待ちの画像がありません(posts/queue が空)。今回はスキップします。")
@@ -203,22 +216,15 @@ def main() -> int:
     log(f"次に投稿する画像: {image.name}(残り {len(items)} 件)")
     log("キャプション:\n" + (caption or "(なし)"))
 
-    token = os.environ.get("IG_ACCESS_TOKEN", "").strip()
-    user_id = os.environ.get("IG_USER_ID", "").strip()
-    if not token or not user_id:
-        log("IG_ACCESS_TOKEN / IG_USER_ID が設定されていません。GitHub Secrets を確認してください。")
-        return 0 if args.dry_run else 1
+    if args.dry_run:
+        log("[dry-run] ここまで問題なし。実際の投稿はしていません。")
+        return 0
 
-    api = Api(token, user_id)
     log(f"接続確認OK: @{api.whoami()}")
     used, total = api.quota()
     log(f"24時間の投稿上限: {used}/{total}")
     if used >= total:
         log("投稿上限に達しているため、今回はスキップします。")
-        return 0
-
-    if args.dry_run:
-        log("[dry-run] ここまで問題なし。実際の投稿はしていません。")
         return 0
 
     media_id = api.publish_image(public_url(image), caption)
