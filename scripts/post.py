@@ -181,6 +181,27 @@ def move_to_posted(image: Path, media_id: str) -> None:
         w.writerow([dt.datetime.now(JST).isoformat(timespec="minutes"), image.name, media_id])
 
 
+def mark_google_done(image: Path) -> None:
+    """LINE承認から来た投稿なら、Google側の表を「投稿済み」にする(LINEにも完了通知が届く)"""
+    if not image.stem.startswith("gas-row"):
+        return
+    url, key = os.environ.get("DRIVE_URL"), os.environ.get("DRIVE_KEY")
+    if not url or not key:
+        return
+    row = image.stem[len("gas-row"):]
+    for attempt in range(3):
+        try:
+            r = requests.get(url, params={"action": "done", "row": row, "key": key}, timeout=60)
+            if r.ok and r.json().get("ok"):
+                log("Google側の表を「投稿済み」にしました。")
+                return
+        except (requests.RequestException, ValueError):
+            pass
+        time.sleep(10 * (attempt + 1))
+    # 失敗しても次回の取り込み時に log.csv を見て片付けるので、ここでは止めない
+    log("注意: Google側の表を「投稿済み」にできませんでした(次回自動で片付けます)。")
+
+
 # ---------- メイン ----------
 
 def main() -> int:
@@ -230,6 +251,7 @@ def main() -> int:
     media_id = api.publish_image(public_url(image), caption)
     log(f"投稿しました! media_id={media_id}")
     move_to_posted(image, media_id)
+    mark_google_done(image)
     return 0
 
 
